@@ -1,0 +1,58 @@
+name: Parking Registration vip
+
+on:
+  repository_dispatch:
+    types: [run-parking-vip]
+  workflow_dispatch: # 수동 실행 가능
+
+permissions:
+  contents: write
+
+# 정각 cron과 수동/텔레그램 실행이 겹칠 때 커밋 충돌 방지
+concurrency:
+  group: parking-vip
+  cancel-in-progress: false
+
+jobs:
+  run-parking-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        pip install requests beautifulsoup4
+
+    - name: Run Parking Bot
+      env:
+        USER1_ID: ${{ secrets.USER1_ID }} #B733
+        USER1_PW: ${{ secrets.USER1_PW }}
+        USER2_ID: ${{ secrets.USER2_ID }} #C132
+        USER2_PW: ${{ secrets.USER2_PW }}
+        USER3_ID: ${{ secrets.USER3_ID }} #C132
+        USER3_PW: ${{ secrets.USER3_PW }}
+        USER4_ID: ${{ secrets.USER4_ID }} #A307
+        USER4_PW: ${{ secrets.USER4_PW }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || vars.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || vars.TELEGRAM_CHAT_ID }}
+      run: |
+        python parking_bot_vip.py
+
+    - name: Generate HTML Report
+      run: |
+        python generate_report.py
+
+    - name: Commit stats, status and report
+      run: |
+        git config --global user.name 'GitHub Action Bot'
+        git config --global user.email 'action@github.com'
+        git add data/parking_stats.db data/status.json docs/index.html
+        # 텔레그램 /추가, /삭제 커밋과 겹칠 수 있으므로 커밋 후 rebase하고 push
+        git diff --staged --quiet || (git commit -m "Chore: Update parking stats, status and report" && git pull --rebase && git push)
