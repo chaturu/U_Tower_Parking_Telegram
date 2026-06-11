@@ -34,6 +34,10 @@ export default {
     const message = update.message || update.edited_message;
     const chatId = message?.chat?.id;
     const text = (message?.text || '').trim();
+    console.log(
+      `update keys=[${Object.keys(update).join(',')}] chat=${chatId ?? 'none'} ` +
+      `type=${message?.chat?.type ?? '?'} text=${text ? JSON.stringify(text.slice(0, 40)) : '(empty)'}`,
+    );
     if (!chatId || !text) {
       return new Response('ok');
     }
@@ -302,9 +306,12 @@ function encodeBase64Utf8(text) {
 // --- Telegram ---
 
 async function sendMessage(env, chatId, text) {
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chatId, text }),
   });
+  if (!res.ok) {
+    console.log(`sendMessage failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+  }
 }
