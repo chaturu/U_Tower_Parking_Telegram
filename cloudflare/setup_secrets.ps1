@@ -1,8 +1,14 @@
-# 남은 Worker 시크릿 등록 + 텔레그램 웹훅 연결
+﻿# 남은 Worker 시크릿 등록 + 텔레그램 웹훅 연결
 # 실행: PowerShell에서 이 폴더로 이동 후 .\setup_secrets.ps1
 # (WEBHOOK_SECRET은 이미 등록되어 있고, 값은 ~\.utower_webhook_secret에 있음)
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
+
+# wrangler 로그인 정보가 저장된 위치를 지정 (이게 없으면 CLOUDFLARE_API_TOKEN 오류 발생)
+$env:XDG_CONFIG_HOME = "$env:APPDATA\xdg.config"
+
+# 콘솔 한글 출력 설정
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
 
 $bot = Read-Host '텔레그램 봇 토큰 (BotFather 발급, 123456:ABC... 형식)'
 $pat = Read-Host 'GitHub fine-grained PAT (github_pat_...)'
