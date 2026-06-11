@@ -101,12 +101,12 @@ function helpText(isMaster) {
   const lines = [
     '🅿️ U-Tower 주차봇 명령',
     '/상태 - 내 차량 입차/남은시간 조회',
-    '/상태 8905 - 끝 4자리로 특정 차량 조회',
+    '/상태 1234 - 끝 4자리로 특정 차량 조회',
   ];
   if (isMaster) {
     lines.push(
-      '/추가 241다8905 [채팅ID] [설명] - 차량 등록',
-      '/삭제 241다8905 - 차량 제거',
+      '/추가 123가1234 [채팅ID] [설명] - 차량 등록',
+      '/삭제 123가1234 - 차량 제거',
       '/목록 - 등록 차량 목록',
       '/실행 - 봇 즉시 실행',
     );
@@ -169,7 +169,7 @@ function formatRemaining(exitText) {
 async function addCar(env, chatId, args) {
   const [carNo, ...rest] = args;
   if (!carNo || !CAR_NO_RE.test(carNo)) {
-    return sendMessage(env, chatId, '사용법: /추가 241다8905 [채팅ID] [설명]\n차량번호 형식이 올바르지 않습니다.');
+    return sendMessage(env, chatId, '사용법: /추가 123가1234 [채팅ID] [설명]\n차량번호 형식이 올바르지 않습니다.');
   }
 
   let targetChatId = String(chatId);
@@ -212,7 +212,7 @@ async function addCar(env, chatId, args) {
 
 async function removeCar(env, chatId, carNo) {
   if (!carNo) {
-    return sendMessage(env, chatId, '사용법: /삭제 241다8905');
+    return sendMessage(env, chatId, '사용법: /삭제 123가1234');
   }
   const file = await ghGetFile(env, VIP_LIST_PATH);
   if (!file) throw new Error(`${VIP_LIST_PATH}을 읽지 못했습니다.`);
