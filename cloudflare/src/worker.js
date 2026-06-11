@@ -9,6 +9,7 @@
 // 역할 2 (scheduled): KST 08~20시 매 정각 GitHub Action 트리거 (repository_dispatch)
 
 const VIP_LIST_PATH = 'vip_list.txt';
+const BLACKLIST_PATH = 'blacklist.txt';
 const STATUS_PATH = 'data/status.json';
 const DISPATCH_EVENT = 'run-parking-vip';
 const CAR_NO_RE = /^\d{2,3}[가-힣]\d{4}$/u;
@@ -189,10 +190,23 @@ async function addCar(env, chatId, args) {
   const newLine = `${carNo},${targetChatId},1,1,${description}`;
   const content = file.content.replace(/\n*$/, '\n') + newLine + '\n';
   await ghPutFile(env, VIP_LIST_PATH, content, file.sha, `Add vehicle ${carNo} via Telegram`);
+
+  // 블랙리스트에 있으면 vip_list에 넣어도 제외되므로 자동으로 빼준다.
+  let blacklistNote = '';
+  const blacklist = await ghGetFile(env, BLACKLIST_PATH);
+  if (blacklist) {
+    const lines = blacklist.content.split('\n');
+    const kept = lines.filter((line) => line.trim() !== carNo);
+    if (kept.length !== lines.length) {
+      await ghPutFile(env, BLACKLIST_PATH, kept.join('\n'), blacklist.sha, `Remove ${carNo} from blacklist via Telegram`);
+      blacklistNote = '\n⚠️ 블랙리스트에 있던 차량이라 블랙리스트에서도 제거했습니다.';
+    }
+  }
+
   return sendMessage(
     env,
     chatId,
-    `✅ 차량을 등록했습니다.\n차량번호: ${carNo}\n알림 채팅ID: ${targetChatId}\n설명: ${description || '-'}\n다음 정각 실행부터 할인 등록됩니다. 바로 적용하려면 /실행`,
+    `✅ 차량을 등록했습니다.\n차량번호: ${carNo}\n알림 채팅ID: ${targetChatId}\n설명: ${description || '-'}${blacklistNote}\n다음 정각 실행부터 할인 등록됩니다. 바로 적용하려면 /실행`,
   );
 }
 
