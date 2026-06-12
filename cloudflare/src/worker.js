@@ -13,7 +13,9 @@
 // 역할 2 (fetch):    GitHub Action 연동 API (Bearer LIST_TOKEN 인증)
 //   GET  /lists       - {vip_list, car_list, blacklist} 반환
 //   POST /status      - 실행 결과 status JSON 저장
-// 역할 3 (scheduled): KST 08~20시 매 정각 GitHub Action 트리거 (repository_dispatch)
+//   GET  /check       - 출차임박 체크 즉시 실행 (테스트용)
+// 역할 3 (scheduled): 매 정각(KST 08~20시) GitHub Action 트리거 (repository_dispatch)
+//                     + 5분마다 KV status로 출차임박(30분전)/경과 알림
 
 const KEY_VIP = 'vip_list';
 const KEY_CARS = 'car_list';
@@ -23,11 +25,14 @@ const CSV_HEADER = '차량번호,텔레그램_채팅ID,입차알림,출차임박
 const DISPATCH_EVENT = 'run-parking-vip';
 const CAR_NO_RE = /^\d{2,3}[가-힣]\d{4}$/u;
 const KST_OFFSET_MS = 9 * 3600 * 1000;
+const DISPATCH_CRON = '0 23,0-11 * * *';
+const IMMINENT_MINUTES = 30;      // 출차 N분 전에 임박 알림
+const ALERT_DEDUP_TTL = 172800;   // 같은 입차 건 알림 1회 보장 (2일 뒤 자동 삭제)
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === '/lists' || url.pathname === '/status') {
+    if (url.pathname === '/lists' || url.pathname === '/status' || url.pathname === '/check') {
       return handleSyncApi(request, env, url.pathname);
     }
 
@@ -66,8 +71,12 @@ export default {
     return new Response('ok');
   },
 
-  async scheduled(_event, env) {
-    await triggerDispatch(env);
+  async scheduled(event, env) {
+    if (event.cron === DISPATCH_CRON) {
+      await triggerDispatch(env);
+    } else {
+      await checkImminentExits(env);
+    }
   },
 };
 
@@ -103,7 +112,48 @@ async function handleSyncApi(request, env, pathname) {
     return new Response('ok');
   }
 
+  if (pathname === '/check' && request.method === 'GET') {
+    return Response.json(await checkImminentExits(env));
+  }
+
   return new Response('method not allowed', { status: 405 });
+}
+
+// --- 출차임박/경과 알림 (5분마다 cron 실행) ---
+
+async function checkImminentExits(env) {
+  const result = { checked: 0, imminent: 0, overdue: 0 };
+  const raw = await env.KV.get(KEY_STATUS);
+  if (!raw) return result;
+
+  const status = JSON.parse(raw);
+  for (const car of status.cars || []) {
+    const exitMs = parseKst(car.exit);
+    if (exitMs === null) continue;
+    result.checked += 1;
+
+    const remainMin = Math.ceil((exitMs - Date.now()) / 60000);
+    if (remainMin > IMMINENT_MINUTES) continue;
+    const alertType = remainMin > 0 ? 'imminent' : 'overdue';
+
+    // 같은 입차 건은 임박/경과 각각 1회만 발송
+    const dedupKey = `alerted:${alertType}:${car.vehicle}:${car.entry}`;
+    if (await env.KV.get(dedupKey)) continue;
+    await env.KV.put(dedupKey, '1', { expirationTtl: ALERT_DEDUP_TTL });
+
+    const chatId = car.chat_id || env.MASTER_CHAT_ID;
+    const desc = car.description ? ` (${car.description})` : '';
+    await sendMessage(
+      env,
+      chatId,
+      `⏰ ${car.vehicle}${desc}\n` +
+        `${car.entry.slice(5)} → ${car.exit.slice(5)}\n` +
+        `${formatRemaining(car.exit)}`,
+    );
+    result[alertType] += 1;
+    console.log(`exit alert sent: ${car.vehicle} ${alertType} remain=${remainMin}min`);
+  }
+  return result;
 }
 
 // --- 텔레그램 명령 ---
@@ -203,7 +253,7 @@ async function replyStatus(env, chatId, isMaster, filter) {
     const desc = car.description ? ` (${car.description})` : '';
     lines.push(
       `${index + 1}. ${car.vehicle}${desc}`,
-      `   입차 ${car.entry.slice(11)} → 출차 ${car.exit.slice(11)} | ${formatRemaining(car.exit)}`,
+      `   ${car.entry.slice(5)} → ${car.exit.slice(5)} | ${formatRemaining(car.exit)}`,
     );
   });
   return sendMessage(env, chatId, lines.join('\n') + footer);

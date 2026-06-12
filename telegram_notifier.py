@@ -33,20 +33,16 @@ def send_message(chat_id, text):
 def send_entry_alert(chat_id, vehicle, entry_dt, exit_dt=None):
     exit_dt = exit_dt or get_exit_time(entry_dt)
     return send_message(chat_id,
-        f"🚗 입차 알림\n"
-        f"차량 번호: {vehicle}\n"
-        f"입차시간: {entry_dt.strftime('%Y-%m-%d %H:%M')}\n"
-        f"출차시간: {exit_dt.strftime('%Y-%m-%d %H:%M')}\n"
+        f"🚗 {vehicle}\n"
+        f"{entry_dt.strftime('%m-%d %H:%M')} → {exit_dt.strftime('%m-%d %H:%M')}\n"
         f"남은시간: {format_remaining(exit_dt)}")
 
 
 def send_imminent_alert(chat_id, vehicle, entry_dt, exit_dt=None):
     exit_dt = exit_dt or get_exit_time(entry_dt)
     return send_message(chat_id,
-        f"⏰ 출차 임박!\n"
-        f"차량 번호: {vehicle}\n"
-        f"입차시간: {entry_dt.strftime('%Y-%m-%d %H:%M')}\n"
-        f"출차시간: {exit_dt.strftime('%Y-%m-%d %H:%M')}\n"
+        f"⏰ {vehicle}\n"
+        f"{entry_dt.strftime('%m-%d %H:%M')} → {exit_dt.strftime('%m-%d %H:%M')}\n"
         f"남은시간: {format_remaining(exit_dt)}")
 
 
@@ -59,7 +55,7 @@ def send_master_entry_summary(entries):
         description = entry.get('description') or '-'
         lines.append(
             f"{index}. {entry['vehicle']} | "
-            f"입차 {entry['entry_dt'].strftime('%Y-%m-%d %H:%M')} | "
+            f"{entry['entry_dt'].strftime('%m-%d %H:%M')} | "
             f"{description}"
         )
 
@@ -71,14 +67,14 @@ def send_master_recent_exit_summary(exits, minutes=60, since_dt=None):
         return False
 
     if since_dt:
-        lines = [f"🚙 이전 확인 이후 출차 차량 ({since_dt.strftime('%Y-%m-%d %H:%M')} 이후)"]
+        lines = [f"🚙 출차 현황 ({since_dt.strftime('%m-%d %H:%M')} 이후)"]
     else:
-        lines = [f"🚙 최근 {minutes}분 출차 차량"]
+        lines = [f"🚙 출차 현황 (최근 {minutes}분)"]
     for index, item in enumerate(sorted(exits, key=lambda item: item['exit_dt']), start=1):
         description = item.get('description') or '-'
         lines.append(
             f"{index}. {item['vehicle']} | "
-            f"출차 {item['exit_dt'].strftime('%Y-%m-%d %H:%M')} | "
+            f"{item['exit_dt'].strftime('%m-%d %H:%M')} | "
             f"{description}"
         )
 

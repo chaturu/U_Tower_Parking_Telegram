@@ -9,22 +9,26 @@ GitHub 저장소에는 올라가지 않습니다 (개인정보 노출 방지).
 [텔레그램 사용자]
    │  /추가, /삭제, /일반추가, /일반삭제, /목록, /상태, /실행, /도움말
    ▼
-[Cloudflare Worker + KV]  ←─ Cron Trigger (KST 08~20시 매 정각)
+[Cloudflare Worker + KV]  ←─ Cron ① KST 08~20시 매 정각  ② 5분마다
    │  KV: vip_list, car_list, blacklist, status
    ├─ 텔레그램 명령으로 KV 차량 목록 관리
    ├─ /상태 → KV status 즉시 응답
+   ├─ Cron ②: KV status 확인 → 출차 30분 전 임박 알림 / 경과 알림 (각 1회)
    ├─ GET /lists  → Action에 차량 목록 제공 (Bearer LIST_TOKEN)
    ├─ POST /status ← Action이 실행 결과 업로드 (Bearer LIST_TOKEN)
-   └─ repository_dispatch (run-parking-vip)
+   └─ Cron ①: repository_dispatch (run-parking-vip)
    ▼
 [GitHub Actions: parking_vip.yml]
    └─ parking_bot_vip.py
       ├─ 주차장 시스템 로그인 → 차량 검색
-      ├─ VIP 차량: 할인 등록 + 개인 입차/출차임박/경과 알림
+      ├─ VIP 차량: 할인 등록 + 개인 입차 알림
       ├─ 일반 차량: 입차 상태 확인만 (할인 등록 없음, 마스터 알림에 포함)
       ├─ 마스터 입차 요약 / 최근 출차 요약
       └─ data/parking_stats.db + docs/index.html 커밋
 ```
+
+출차임박(30분 전)/경과 알림은 Worker가 5분마다 KV status를 확인해 보냅니다.
+기준 분은 `cloudflare/src/worker.js`의 `IMMINENT_MINUTES`로 조정합니다.
 
 ## 차량 구분
 
