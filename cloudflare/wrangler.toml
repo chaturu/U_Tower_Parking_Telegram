@@ -9,8 +9,15 @@ crons = ["0 23,0-11 * * *"]
 [vars]
 GITHUB_REPO = "chaturu/U_Tower_Parking_Telegram"
 
-# 시크릿은 `wrangler secret put <이름>`으로 등록합니다 (코드에 넣지 마세요):
+# 차량 목록(vip_list, car_list, blacklist)과 status를 저장하는 KV.
+# GitHub에는 차량 목록을 올리지 않습니다.
+[[kv_namespaces]]
+binding = "KV"
+id = "437f600af7dd43d28d8fda99bd83ccc8"
+
+# 시크릿은 `wrangler secret bulk <json파일>`로 등록합니다 (코드에 넣지 마세요):
 #   TELEGRAM_BOT_TOKEN  - 텔레그램 봇 토큰
 #   WEBHOOK_SECRET      - setWebhook의 secret_token과 동일한 임의 문자열
-#   GH_TOKEN            - GitHub fine-grained PAT (이 저장소 Contents Read/Write)
+#   GH_TOKEN            - GitHub fine-grained PAT (repository_dispatch용)
 #   MASTER_CHAT_ID      - 마스터(관리자) 텔레그램 채팅 ID
+#   LIST_TOKEN          - GitHub Action이 /lists, /status 호출 시 쓰는 Bearer 토큰

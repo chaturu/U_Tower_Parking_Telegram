@@ -13,6 +13,9 @@ concurrency:
   group: parking-vip
   cancel-in-progress: false
 
+env:
+  WORKER_URL: https://u-tower-parking-telegram.ypd0004.workers.dev
+
 jobs:
   run-parking-bot:
     runs-on: ubuntu-latest
@@ -30,6 +33,15 @@ jobs:
       run: |
         pip install requests beautifulsoup4
 
+    # 차량 목록은 GitHub에 두지 않고 Cloudflare KV에서 받아옵니다 (로그에 출력 금지)
+    - name: Fetch vehicle lists from Cloudflare
+      env:
+        LIST_TOKEN: ${{ secrets.LIST_TOKEN }}
+      run: |
+        curl -sf -H "Authorization: Bearer $LIST_TOKEN" "$WORKER_URL/lists" -o lists.json
+        python -c "import json; d = json.load(open('lists.json', encoding='utf-8')); [open(n, 'w', encoding='utf-8').write(d.get(k) or '') for k, n in [('vip_list', 'vip_list.txt'), ('car_list', 'cars.txt'), ('blacklist', 'blacklist.txt')]]"
+        rm lists.json
+
     - name: Run Parking Bot
       env:
         USER1_ID: ${{ secrets.USER1_ID }} #B733
@@ -45,14 +57,21 @@ jobs:
       run: |
         python parking_bot_vip.py
 
+    # /상태 조회용 status도 GitHub 커밋 대신 Cloudflare KV에 저장합니다
+    - name: Upload status to Cloudflare
+      env:
+        LIST_TOKEN: ${{ secrets.LIST_TOKEN }}
+      run: |
+        curl -sf -X POST -H "Authorization: Bearer $LIST_TOKEN" \
+          --data-binary @data/status.json "$WORKER_URL/status"
+
     - name: Generate HTML Report
       run: |
         python generate_report.py
 
-    - name: Commit stats, status and report
+    - name: Commit stats and report
       run: |
         git config --global user.name 'GitHub Action Bot'
         git config --global user.email 'action@github.com'
-        git add data/parking_stats.db data/status.json docs/index.html
-        # 텔레그램 /추가, /삭제 커밋과 겹칠 수 있으므로 커밋 후 rebase하고 push
-        git diff --staged --quiet || (git commit -m "Chore: Update parking stats, status and report" && git pull --rebase && git push)
+        git add data/parking_stats.db docs/index.html
+        git diff --staged --quiet || (git commit -m "Chore: Update parking stats and report" && git pull --rebase && git push)

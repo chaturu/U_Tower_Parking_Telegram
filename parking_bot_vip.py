@@ -165,7 +165,7 @@ def parse_alert_flag(value, default=True):
 
 
 def make_car(full_no, chat_id=None, entry_alert=True,
-             imminent_alert=True, description='', source='일반'):
+             imminent_alert=True, description='', source='일반', register=True):
     return {
         'full_no': full_no,
         'suffix': full_no[-4:],
@@ -174,10 +174,11 @@ def make_car(full_no, chat_id=None, entry_alert=True,
         'imminent_alert': imminent_alert,
         'description': description,
         'source': source,
+        'register': register,
     }
 
 
-def read_vehicle_csv(file_path, default_source='일반', default_description='일반'):
+def read_vehicle_csv(file_path, default_source='일반', default_description='일반', register=True):
     """
     CSV format:
     차량번호,텔레그램채팅ID,입차알림,출차임박알림,설명
@@ -205,6 +206,7 @@ def read_vehicle_csv(file_path, default_source='일반', default_description='�
                         chat_id=chat_id,
                         description=description.strip() or default_description,
                         source=default_source,
+                        register=register,
                     ))
                 continue
 
@@ -219,6 +221,7 @@ def read_vehicle_csv(file_path, default_source='일반', default_description='�
                 imminent_alert=parse_alert_flag(row[3] if len(row) > 3 else None, True),
                 description=row[4] if len(row) > 4 and row[4] else default_description,
                 source=default_source,
+                register=register,
             ))
     return cars
 
@@ -228,21 +231,23 @@ def read_car_numbers(file_path):
 
 
 def build_car_list():
+    """VIP(할인등록+개인알림)와 일반(입차 확인만) 차량 목록을 병합합니다.
+
+    목록 파일은 GitHub Action이 실행 시 Cloudflare Worker(/lists)에서 받아 씁니다.
+    """
     blacklist = set(read_car_numbers('blacklist.txt'))
     merged = []
     seen = set()
 
-    for car in read_vehicle_csv('vip_list.txt', default_source='VIP', default_description='VIP'):
+    for car in read_vehicle_csv('vip_list.txt', default_source='VIP',
+                                default_description='VIP', register=True):
         full_no = car['full_no']
         if full_no in blacklist or full_no in seen:
             continue
         merged.append(car)
         seen.add(full_no)
 
-    for car in (
-        read_vehicle_csv('whitelist.txt') +
-        read_vehicle_csv('cars.txt')
-    ):
+    for car in read_vehicle_csv('cars.txt', register=False):
         full_no = car['full_no']
         if full_no in blacklist or full_no in seen:
             continue
@@ -418,6 +423,12 @@ def process_account(account, cars, results_lock, registration_results, entry_tim
                                 else:
                                     print(f"  ⏰ [{uid}] {full_no}: 출차시간 경과 알람 전송 ({-remaining_min}분 경과)")
 
+                # 일반 차량은 입차 상태 확인까지만 하고 할인 등록은 하지 않습니다.
+                if not car.get('register', True):
+                    if entry_times.get(full_no):
+                        print(f"  👀 [{uid}] {full_no}: 일반 차량 — 입차 확인만, 할인등록 생략.")
+                    continue
+
                 # --- 할인 코드 중복 체크 ---
                 current_applied_codes = []
                 target_card_hidden_input = soup.find('input', {'type': 'hidden', 'id': target_card_no})
@@ -498,7 +509,11 @@ def run_parallel_process():
         print("❌ No cars to process! Aborting.")
         return
 
-    print(f"🚗 Vehicle list: {len(vip_cars)} car(s).")
+    register_cars = [car for car in vip_cars if car.get('register', True)]
+    print(
+        f"🚗 Vehicle list: {len(vip_cars)} car(s) "
+        f"(VIP 등록 {len(register_cars)}대, 일반 확인 {len(vip_cars) - len(register_cars)}대)."
+    )
 
     # 스레드 공유 상태
     results_lock = threading.Lock()
@@ -507,12 +522,17 @@ def run_parallel_process():
     imminent_alerted = set()   # 이번 실행에서 알람 2 발송한 차량
     fully_registered = {}      # {vehicle: entry_datetime} — 이미 4개 코드 완전 등록된 차량
 
+    # 일반 차량은 입차 확인만 하면 되므로 첫 계정 스레드만 검색하고,
+    # 나머지 스레드는 할인등록 대상(VIP)만 처리합니다.
     threads = []
+    first_account = True
     for acc in ACCOUNTS:
         if acc['uid']:
+            target_cars = vip_cars if first_account else register_cars
+            first_account = False
             t = threading.Thread(
                 target=process_account,
-                args=(acc, vip_cars, results_lock,
+                args=(acc, target_cars, results_lock,
                       registration_results, entry_times, imminent_alerted, fully_registered, options)
             )
             threads.append(t)

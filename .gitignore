@@ -4,3 +4,11 @@ __pycache__/
 .claude/
 node_modules/
 .wrangler/
+
+# 차량 목록과 상태는 Cloudflare KV에 보관 (GitHub에 올리지 않음 — 개인정보 노출 방지)
+vip_list.txt
+cars.txt
+whitelist.txt
+blacklist.txt
+data/status.json
+lists.json
