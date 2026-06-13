@@ -46,11 +46,15 @@ def send_imminent_alert(chat_id, vehicle, entry_dt, exit_dt=None):
         f"남은시간: {format_remaining(exit_dt)}")
 
 
-def send_master_entry_summary(entries):
+def send_master_entry_summary(entries, run_time=None):
     if not entries:
         return False
 
-    lines = ["🚗 입차 현황"]
+    if run_time:
+        header = f"🅿️ 주차 현황(기준: {run_time.strftime('%m-%d %H:%M')} 실행)"
+    else:
+        header = "🅿️ 주차 현황"
+    lines = [header]
     for index, entry in enumerate(sorted(entries, key=lambda item: item['entry_dt']), start=1):
         description = entry.get('description') or '-'
         lines.append(

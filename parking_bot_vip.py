@@ -488,7 +488,8 @@ def process_account(account, cars, results_lock, registration_results, entry_tim
 
 
 def run_parallel_process():
-    print(f"🕒 Parallel Batch Job Started: {datetime.datetime.now()}")
+    run_time = now_kst()
+    print(f"🕒 Parallel Batch Job Started: {run_time}")
 
     init_db()
     options = load_options()
@@ -608,7 +609,7 @@ def run_parallel_process():
 
             if not should_send_master_entry:
                 print("  ℹ️ Master entry summary unchanged. Skip.")
-            elif send_master_entry_summary(master_entries):
+            elif send_master_entry_summary(master_entries, run_time=run_time):
                 for entry in master_entries:
                     mark_alert_sent(
                         entry['vehicle'],
