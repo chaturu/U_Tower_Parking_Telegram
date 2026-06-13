@@ -146,9 +146,11 @@ async function checkImminentExits(env) {
     await sendMessage(
       env,
       chatId,
-      `⏰ ${car.vehicle}${desc}\n` +
-        `${car.entry.slice(5)} → ${car.exit.slice(5)}\n` +
-        `${formatRemaining(car.exit)}`,
+      `⏰ 출차 임박!\n` +
+        `차량 번호: ${car.vehicle}${desc}\n` +
+        `입차시간: ${car.entry}\n` +
+        `출차시간: ${car.exit}\n` +
+        `남은시간: ${formatRemaining(car.exit)}`,
     );
     result[alertType] += 1;
     console.log(`exit alert sent: ${car.vehicle} ${alertType} remain=${remainMin}min`);

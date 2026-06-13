@@ -33,16 +33,20 @@ def send_message(chat_id, text):
 def send_entry_alert(chat_id, vehicle, entry_dt, exit_dt=None):
     exit_dt = exit_dt or get_exit_time(entry_dt)
     return send_message(chat_id,
-        f"🚗 {vehicle}\n"
-        f"{entry_dt.strftime('%m-%d %H:%M')} → {exit_dt.strftime('%m-%d %H:%M')}\n"
+        f"🚗 입차 알림\n"
+        f"차량 번호: {vehicle}\n"
+        f"입차시간: {entry_dt.strftime('%Y-%m-%d %H:%M')}\n"
+        f"출차시간: {exit_dt.strftime('%Y-%m-%d %H:%M')}\n"
         f"남은시간: {format_remaining(exit_dt)}")
 
 
 def send_imminent_alert(chat_id, vehicle, entry_dt, exit_dt=None):
     exit_dt = exit_dt or get_exit_time(entry_dt)
     return send_message(chat_id,
-        f"⏰ {vehicle}\n"
-        f"{entry_dt.strftime('%m-%d %H:%M')} → {exit_dt.strftime('%m-%d %H:%M')}\n"
+        f"⏰ 출차 임박!\n"
+        f"차량 번호: {vehicle}\n"
+        f"입차시간: {entry_dt.strftime('%Y-%m-%d %H:%M')}\n"
+        f"출차시간: {exit_dt.strftime('%Y-%m-%d %H:%M')}\n"
         f"남은시간: {format_remaining(exit_dt)}")
 
 
